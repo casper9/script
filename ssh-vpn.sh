@@ -82,7 +82,6 @@ chmod -R g+rw /home/vps/public_html
 cd /home/vps/public_html
 wget -O /home/vps/public_html/index.html "https://raw.githubusercontent.com/casper9/script/main/index.html"
 /etc/init.d/nginx restart
-install_ssl
 
 # install badvpn
 cd
