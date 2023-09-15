@@ -11,6 +11,8 @@ rm -rf wondershaper
 cd /usr/bin
 wget -O cleaner "https://raw.githubusercontent.com/casper9/script/main/cleaner.sh"
 wget -O xp "https://raw.githubusercontent.com/casper9/script/main/xp.sh"
+wget -O bantwidth "https://raw.githubusercontent.com/casper9/script/main/bantwidth"
+chmod +x /usr/bin/bantwidth
 chmod +x /usr/bin/cleaner
 chmod +x /usr/bin/xp
 cd
