@@ -269,13 +269,13 @@ END
 cat> /etc/cron.d/tendang << END
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/3 * * * * root /usr/bin/tendang
+*/5 * * * * root /usr/bin/tendang
 END
 
 cat> /etc/cron.d/xraylimit << END
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/5 * * * * root /usr/bin/xraylimit
+*/10 * * * * root /usr/bin/xraylimit
 END
 
 service cron restart >/dev/null 2>&1
