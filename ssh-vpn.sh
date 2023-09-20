@@ -178,7 +178,7 @@ wget https://raw.githubusercontent.com/casper9/script/main/lolcat.sh &&  chmod +
 
 # memory swap 10gb
 cd
-dd if=/dev/zero of=/swapfile bs=1024 count=10485760
+dd if=/dev/zero of=/swapfile bs=1024 count=5242880
 mkswap /swapfile
 chown root:root /swapfile
 chmod 0600 /swapfile >/dev/null 2>&1
