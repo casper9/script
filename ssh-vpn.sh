@@ -270,7 +270,7 @@ END
 cat> /etc/cron.d/tendang << END
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/15 * * * * root /usr/bin/tendang
+*/13 * * * * root /usr/bin/tendang
 END
 
 cat> /etc/cron.d/xraylimit << END
