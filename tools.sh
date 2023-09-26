@@ -27,6 +27,7 @@ sudo apt-get install -y --no-install-recommends netfilter-persistent figlet ruby
 sudo apt-get install -y libjpeg-dev zlib1g-dev python python3 python3-pip shc build-essential speedtest-cli
 sudo apt-get install -y nodejs
 sudo apt-get -y install nginx p7zip-full
+apt install p7zip-full speedtest-cli python python3 python3-pip
 
 # remove unnecessary files
 sudo apt-get autoclean -y >/dev/null 2>&1
