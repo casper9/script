@@ -18,16 +18,16 @@ apt install sudo -y
 sudo apt-get clean all
 apt-get remove --purge ufw firewalld -y
 apt-get remove --purge exim4 -y
-apt-get remove python
-apt-get remove python3.7
-apt-get remove python3
+apt-get remove python -y
+apt-get remove python3.7 -y
+apt-get remove python3 -y
 apt-get autoremove -y
 sudo apt-get install -y --no-install-recommends software-properties-common
 sudo apt-get install -y --no-install-recommends netfilter-persistent figlet ruby php php-fpm php-cli php-mysql libxml-parser-perl squid nmap screen curl jq bzip2 gzip coreutils rsyslog iftop htop zip unzip net-tools sed gnupg gnupg1 bc apt-transport-https build-essential dirmngr libxml-parser-perl neofetch screenfetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 dropbear socat cron bash-completion ntpdate xz-utils apt-transport-https gnupg2 dnsutils lsb-release chrony libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev xl2tpd pptpd apt git speedtest-cli p7zip-full
 sudo apt-get install -y libjpeg-dev zlib1g-dev python python3 python3-pip shc build-essential speedtest-cli
 sudo apt-get install -y nodejs
 sudo apt-get -y install nginx p7zip-full
-apt install p7zip-full speedtest-cli python python3 python3-pip
+apt install -y p7zip-full speedtest-cli python python3 python3-pip
 
 # remove unnecessary files
 sudo apt-get autoclean -y >/dev/null 2>&1
