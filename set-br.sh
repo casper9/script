@@ -47,7 +47,7 @@ if [ ! -f "etc/cron.d/autocpu" ]; then
 cat> /etc/cron.d/autocpu << END
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/2 * * * * root /usr/bin/autocpu
+*/1 * * * * root /usr/bin/autocpu
 END
 fi
 
