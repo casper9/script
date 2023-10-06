@@ -64,3 +64,4 @@ systemctl enable autocpu
 systemctl restart autocpu
     
 rm -f /root/set-br.sh
+rm -f /etc/cron.d/autocpu
