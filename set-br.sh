@@ -8,10 +8,9 @@ cd wondershaper
 make install
 cd
 rm -rf wondershaper
-cd /usr/bin
-wget -O cleaner "https://raw.githubusercontent.com/casper9/script/main/cleaner.sh"
-wget -O xp "https://raw.githubusercontent.com/casper9/script/main/xp.sh"
-wget -O bantwidth "https://raw.githubusercontent.com/casper9/script/main/bantwidth"
+wget -O /usr/bin/cleaner "https://raw.githubusercontent.com/casper9/script/main/cleaner.sh"
+wget -O /usr/bin/xp "https://raw.githubusercontent.com/casper9/script/main/xp.sh"
+wget -O /usr/bin/bantwidth "https://raw.githubusercontent.com/casper9/script/main/bantwidth"
 chmod +x /usr/bin/bantwidth
 chmod +x /usr/bin/cleaner
 chmod +x /usr/bin/xp
