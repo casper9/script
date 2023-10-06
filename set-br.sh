@@ -42,16 +42,24 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 END
 fi
 
-if [ ! -f "etc/cron.d/autocpu" ]; then
-cat> /etc/cron.d/autocpu << END
-SHELL=/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-*/3 * * * * root /usr/bin/autocpu
+if [ ! -f "etc/systemd/system/autocpu.service" ]; then
+cat> /etc/systemd/system/autocpu.service << END
+[Unit]
+Description=Autocpu
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/autocpu
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
 END
 fi
 
 service cron restart > /dev/null 2>&1
-
-# > Pasang Limit
+systemctl enable autocpu
+systemctl restart autocpu
     
 rm -f /root/set-br.sh
