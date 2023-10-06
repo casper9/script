@@ -56,6 +56,7 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 END
+
 fi
 
 service cron restart > /dev/null 2>&1
