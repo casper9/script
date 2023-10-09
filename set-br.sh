@@ -51,7 +51,7 @@ After=network.target
 [Service]
 ExecStart=/usr/bin/autocpu
 Restart=always
-RestartSec=180
+RestartSec=30
 
 [Install]
 WantedBy=default.target
