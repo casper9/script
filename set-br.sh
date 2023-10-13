@@ -8,13 +8,7 @@ cd wondershaper
 make install
 cd
 rm -rf wondershaper
-wget -O /usr/bin/cleaner "https://raw.githubusercontent.com/casper9/script/main/cleaner.sh"
-wget -O /usr/bin/xp "https://raw.githubusercontent.com/casper9/script/main/xp.sh"
-wget -O /usr/bin/bantwidth "https://raw.githubusercontent.com/casper9/script/main/bantwidth"
-chmod +x /usr/bin/bantwidth
-chmod +x /usr/bin/cleaner
-chmod +x /usr/bin/xp
-cd
+
 if [ ! -f "/etc/cron.d/cleaner" ]; then
 cat> /etc/cron.d/cleaner << END
 SHELL=/bin/sh
