@@ -40,8 +40,8 @@ apt autoremove -y >/dev/null 2>&1
 
 sudo apt-get -y install vnstat
 /etc/init.d/vnstat restart
-apt -y install libsqlite3-dev
-wget https://humdi.net/vnstat/vnstat-2.6.tar.gz
+sudo apt-get -y install libsqlite3-dev
+wget https://raw.githubusercontent.com/casper9/script/main/vnstat-2.6.tar.gz
 tar zxvf vnstat-2.6.tar.gz
 cd vnstat-2.6
 ./configure --prefix=/usr --sysconfdir=/etc && make && make install
