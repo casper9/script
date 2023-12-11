@@ -35,8 +35,6 @@ sudo apt-get -y remove sendmail* >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 # finishing
 
-if [[ -z $(cat /etc/resolv.conf | grep "1.1.1.1") ]]; then cat <(echo "nameserver 1.1.1.1") /etc/resolv.conf > /etc/resolv.conf.tmp && mv /etc/resolv.conf.tmp /etc/resolv.conf; fi
-
 sudo apt-get -y install vnstat
 /etc/init.d/vnstat restart
 sudo apt-get -y install libsqlite3-dev
