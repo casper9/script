@@ -263,7 +263,7 @@ END
 cat> /etc/cron.d/bckp_otm << END
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-0 5 * * * root /usr/bin/bottelegram
+10 */4 * * * root /usr/bin/bottelegram
 END
 #fi
 
