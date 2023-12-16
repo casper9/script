@@ -22,6 +22,9 @@ domain=$(cat /etc/xray/domain)
 else
 domain="casper1.dev"
 fi
+if [[ -z /etc/xray/domain ]]; then
+domain="casper1.dev"
+fi
 sleep 0.5
 mkdir -p /etc/xray
 echo -e "[ ${green}INFO${NC} ] Checking... "
