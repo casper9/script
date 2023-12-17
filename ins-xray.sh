@@ -17,7 +17,14 @@ echo -e "
 date
 echo ""
 cd
+if [[ -e /etc/xray/domain ]]; then
 domain=$(cat /etc/xray/domain)
+else
+domain="casper1.dev"
+fi
+if [[ -z /etc/xray/domain ]]; then
+domain="casper1.dev"
+fi
 sleep 0.5
 mkdir -p /etc/xray
 echo -e "[ ${green}INFO${NC} ] Checking... "
@@ -412,7 +419,7 @@ cat >/etc/nginx/conf.d/xray.conf <<EOF
              listen [::]:8080;
              listen 443 ssl http2 reuseport;
              listen [::]:443 http2 reuseport;
-             server_name *.casper1.dev;
+             server_name *.${domain};
              ssl_certificate /etc/xray/xray.crt;
              ssl_certificate_key /etc/xray/xray.key;
              ssl_ciphers EECDH+CHACHA20:EECDH+CHACHA20-draft:EECDH+ECDSA+AES128:EECDH+aRSA+AES128:RSA+AES128:EECDH+ECDSA+AES256:EECDH+aRSA+AES256:RSA+AES256:EECDH+ECDSA+3DES:EECDH+aRSA+3DES:RSA+3DES:!MD5;
