@@ -279,6 +279,12 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */15 * * * * root /usr/bin/xraylimit
 END
 
+cat> /etc/cron.d/autocpu << END
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+*/20 * * * * root /usr/bin/autocpu
+END
+
 service cron restart >/dev/null 2>&1
 service cron reload >/dev/null 2>&1
 service cron start >/dev/null 2>&1
