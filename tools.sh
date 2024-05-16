@@ -11,6 +11,8 @@ red() { echo -e "\\033[31;1m${*}\\033[0m"; }
 echo "           Tools install...!"
 echo "                  Progress..."
 sleep 0.5
+apt update -y
+apt upgrade -y
 apt dist-upgrade -y
 apt install sudo -y
 sudo apt-get clean all
