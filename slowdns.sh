@@ -47,7 +47,8 @@ wget -q -O /etc/slowdns/sldns-client https://raw.githubusercontent.com/casper9/s
 cd
 chmod +x /etc/slowdns/sldns-server
 chmod +x /etc/slowdns/sldns-client
-./etc/slowdns/sldns-client -gen-key -privkey-file server.key -pubkey-file server.pub
+cd /etc/slowdns/
+./sldns-server -gen-key -privkey-file server.key -pubkey-file server.pub
 chmod +x /etc/slowdns/server.key
 chmod +x /etc/slowdns/server.pub
 
