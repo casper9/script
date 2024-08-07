@@ -1,11 +1,5 @@
 #!/bin/bash
 # ===============================================
-#setting IPtables
-iptables -I INPUT -p udp --dport 5300 -j ACCEPT
-iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300
-netfilter-persistent save
-netfilter-persistent reload
-
 #delete directory
 rm -rf /root/nsdomain
 rm nsdomain
@@ -28,6 +22,8 @@ apt install git -y
 apt install curl -y
 apt install wget -y
 apt install screen -y
+apt install iptables -y
+apt install netfilter-persistent -y
 apt install cron -y
 apt install iptables -y
 apt install -y git screen whois dropbear wget
@@ -93,6 +89,12 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 END
+
+#setting IPtables
+iptables -I INPUT -p udp --dport 5300 -j ACCEPT
+iptables -t nat -I PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300
+netfilter-persistent save
+netfilter-persistent reload 
 
 #permission service slowdns
 cd
