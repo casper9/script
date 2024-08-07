@@ -17,7 +17,7 @@ NS_DOMAIN=$(cat /root/subdomainx);
 fi
 
 echo $NS_DOMAIN > /root/nsdomain
-echo $NS_DOMAIN > etc/xray/dns
+echo $NS_DOMAIN > /etc/xray/dns
 
 nameserver=$(cat /root/nsdomain)
 apt update -y
@@ -42,21 +42,20 @@ service cron restart
 #konfigurasi slowdns
 rm -rf /etc/slowdns
 mkdir -m 777 /etc/slowdns
-wget -q -O /etc/slowdns/server.key https://raw.githubusercontent.com/casper9/script/main/server.key
-wget -q -O /etc/slowdns/server.pub https://raw.githubusercontent.com/casper9/script/main/server.pub
 wget -q -O /etc/slowdns/sldns-server https://raw.githubusercontent.com/casper9/script/main/sldns-server
 wget -q -O /etc/slowdns/sldns-client https://raw.githubusercontent.com/casper9/script/main/sldns-client
 cd
-chmod +x /etc/slowdns/server.key
-chmod +x /etc/slowdns/server.pub
 chmod +x /etc/slowdns/sldns-server
 chmod +x /etc/slowdns/sldns-client
+./etc/slowdns/sldns-client -gen-key -privkey-file server.key -pubkey-file server.pub
+chmod +x /etc/slowdns/server.key
+chmod +x /etc/slowdns/server.pub
 
 cd
 #install client-sldns.service
 cat > /etc/systemd/system/client-sldns.service << END
 [Unit]
-Description=Client SlowDNS By CyberVPN
+Description=Client
 Documentation=https://www.xnxx.com
 After=network.target nss-lookup.target
 
@@ -77,7 +76,7 @@ cd
 #install server-sldns.service
 cat > /etc/systemd/system/server-sldns.service << END
 [Unit]
-Description=Server SlowDNS By Cybervpn
+Description=Server
 Documentation=https://xhamster.com
 After=network.target nss-lookup.target
 
