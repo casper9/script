@@ -168,7 +168,7 @@ wget https://raw.githubusercontent.com/casper9/script/main/vpn.sh &&  chmod +x v
 
 #slowdns
 cd
-wget https://raw.githubusercontent.com/casper9/script/main/installsl.sh && chmod +x installsl.sh && ./installsl.sh
+wget https://raw.githubusercontent.com/casper9/script/main/slowdns.sh && chmod +x slowdns.sh && ./slowdns.sh
 
 #udpcostum
 cd
