@@ -20,6 +20,7 @@ apt install -y debconf-utils
 apt-get remove --purge ufw firewalld -y
 apt-get remove --purge exim4 -y
 apt-get autoremove -y
+apt install p7zip-full -y
 apt install -y --no-install-recommends software-properties-common
 echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
