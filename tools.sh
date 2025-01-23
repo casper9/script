@@ -36,6 +36,9 @@ sudo apt-get -y remove sendmail* >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 # finishing
 
+sudo apt install -y p7zip-full
+sudo apt install -y speedtest-cli
+
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
 
