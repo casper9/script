@@ -40,6 +40,7 @@ sudo apt install -y p7zip-full
 sudo apt install -y speedtest-cli
 apt install -y nginx
 apt install -y p7zip-full
+apt install -y dropbear
 
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
