@@ -59,9 +59,6 @@ apt-get --assume-yes install php-fpm
 apt-get --assume-yes install php-cli 
 apt-get --assume-yes install dropbear
 
-wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
-pip3 install -r requirements.txt
-
 sudo apt-get -y install vnstat
 /etc/init.d/vnstat restart
 sudo apt-get -y install libsqlite3-dev
