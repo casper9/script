@@ -13,7 +13,50 @@ echo "                  Progress..."
 sleep 0.5
 sudo apt-get clean all
 apt-get autoremove -y
-apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap rsyslog iftop htop zip unzip net-tools sed bc apt-transport-https build-essential libxml-parser-perl neofetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate apt-transport-https chrony speedtest-cli p7zip-full python python3 python3-pip shc nodejs nginx php php-cli dropbear
+apt-get -y install iptables
+apt-get -y install iptables-persistent 
+apt-get -y install netfilter-persistent
+apt-get -y install figlet
+apt-get -y install ruby 
+apt-get -y install libxml-parser-perl 
+apt-get -y install squid 
+apt-get -y install nmap 
+apt-get -y install rsyslog 
+apt-get -y install iftop 
+apt-get -y install htop 
+apt-get -y install zip 
+apt-get -y install unzip 
+apt-get -y install net-tools 
+apt-get -y install sed 
+apt-get -y install bc 
+apt-get -y install apt-transport-https
+apt-get -y install build-essential 
+apt-get -y install libxml-parser-perl 
+apt-get -y install neofetch 
+apt-get -y install lsof 
+apt-get -y install openssl 
+apt-get -y install openvpn 
+apt-get -y install easy-rsa 
+apt-get -y install fail2ban 
+apt-get -y install tmux 
+apt-get -y install stunnel4 
+apt-get -y install squid3 
+apt-get -y install socat 
+apt-get -y install cron 
+apt-get -y install bash-completion 
+apt-get -y install ntpdate 
+apt-get -y install apt-transport-https
+apt-get -y install chrony 
+apt-get -y install speedtest-cli
+apt-get -y install p7zip-full 
+apt-get -y install python3 
+apt-get -y install python3-pip 
+apt-get -y install shc 
+apt-get -y install nodejs
+apt-get -y install nginx 
+apt-get -y install php 
+apt-get -y install php-cli 
+apt-get -y install dropbear
 
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
