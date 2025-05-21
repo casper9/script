@@ -77,6 +77,9 @@ systemctl enable vnstat
 rm -f /root/vnstat-2.6.tar.gz
 rm -rf /root/vnstat-2.6
 
+# // install lolcat
+wget https://raw.githubusercontent.com/casper9/script/main/lolcat.sh &&  chmod +x lolcat.sh && ./lolcat.sh
+
 yellow() { echo -e "\\033[33;1m${*}\\033[0m"; }
 yellow "Dependencies successfully installed..."
 sleep 1
