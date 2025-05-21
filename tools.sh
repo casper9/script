@@ -11,26 +11,9 @@ red() { echo -e "\\033[31;1m${*}\\033[0m"; }
 echo "           Tools install...!"
 echo "                  Progress..."
 sleep 0.5
-apt-get dist-upgrade -y
 sudo apt-get clean all
-apt-get install -y debconf-utils
-apt-get remove --purge ufw firewalld -y
-apt-get remove --purge exim4 -y
 apt-get autoremove -y
-apt-get install -y --no-install-recommends software-properties-common
-echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
-echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap rsyslog iftop htop zip unzip net-tools sed bc apt-transport-https build-essential libxml-parser-perl neofetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate apt-transport-https chrony speedtest-cli p7zip-full python python3 python3-pip shc nodejs nginx php php-cli dropbear
-
-# remove unnecessary files
-sudo apt-get autoclean -y >/dev/null 2>&1
-audo apt-get -y --purge removd unscd >/dev/null 2>&1
-sudo apt-get -y --purge remove samba* >/dev/null 2>&1
-sudo apt-get -y --purge remove apache2* >/dev/null 2>&1
-sudo apt-get -y --purge remove bind9* >/dev/null 2>&1
-sudo apt-get -y remove sendmail* >/dev/null 2>&1
-apt autoremove -y >/dev/null 2>&1
-# finishing
+apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap rsyslog iftop htop zip unzip net-tools sed bc apt-transport-https build-essential libxml-parser-perl neofetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate apt-transport-https chrony speedtest-cli p7zip-full python python3 python3-pip shc nodejs nginx php php-cli dropbear
 
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
