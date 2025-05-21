@@ -113,9 +113,6 @@ wget https://raw.githubusercontent.com/casper9/script/main/slowdns.sh && chmod +
 cd
 wget https://raw.githubusercontent.com/casper9/script/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh
 
-# // install lolcat
-wget https://raw.githubusercontent.com/casper9/script/main/lolcat.sh &&  chmod +x lolcat.sh && ./lolcat.sh
-
 # memory swap 10gb
 cd
 dd if=/dev/zero of=/swapfile bs=1024 count=5242880
