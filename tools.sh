@@ -11,16 +11,12 @@ red() { echo -e "\\033[31;1m${*}\\033[0m"; }
 echo "           Tools install...!"
 echo "                  Progress..."
 sleep 0.5
-apt-get update -y
-apt-get upgrade -y
 apt-get dist-upgrade -y
-apt-get install sudo -y
 sudo apt-get clean all
 apt-get install -y debconf-utils
 apt-get remove --purge ufw firewalld -y
 apt-get remove --purge exim4 -y
 apt-get autoremove -y
-apt-get install p7zip-full -y
 apt-get install -y --no-install-recommends software-properties-common
 echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
