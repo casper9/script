@@ -11,17 +11,17 @@ red() { echo -e "\\033[31;1m${*}\\033[0m"; }
 echo "           Tools install...!"
 echo "                  Progress..."
 sleep 0.5
-apt update -y
-apt upgrade -y
-apt dist-upgrade -y
-apt install sudo -y
+apt-get update -y
+apt-get upgrade -y
+apt-get dist-upgrade -y
+apt-get install sudo -y
 sudo apt-get clean all
-apt install -y debconf-utils
+apt-get install -y debconf-utils
 apt-get remove --purge ufw firewalld -y
 apt-get remove --purge exim4 -y
 apt-get autoremove -y
-apt install p7zip-full -y
-apt install -y --no-install-recommends software-properties-common
+apt-get install p7zip-full -y
+apt-get install -y --no-install-recommends software-properties-common
 echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
 sudo DEBIAN_FRONTEND=noninteractive apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap screen curl jq bzip2 gzip coreutils rsyslog iftop htop zip unzip net-tools sed gnupg gnupg1 bc apt-transport-https build-essential dirmngr libxml-parser-perl neofetch screenfetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate xz-utils apt-transport-https gnupg2 dnsutils lsb-release chrony libnss3-dev libnspr4-dev pkg-config libpam0g-dev libcap-ng-dev libcap-ng-utils libselinux1-dev libcurl4-nss-dev flex bison make libnss3-tools libevent-dev xl2tpd pptpd apt git speedtest-cli p7zip-full libjpeg-dev zlib1g-dev python python3 python3-pip shc build-essential nodejs nginx php php-fpm php-cli php-mysql p7zip-full
@@ -36,11 +36,11 @@ sudo apt-get -y remove sendmail* >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 # finishing
 
-sudo apt install -y p7zip-full
-sudo apt install -y speedtest-cli
-apt install -y nginx
-apt install -y p7zip-full
-apt install -y dropbear
+sudo apt-get install -y p7zip-full
+sudo apt-get install -y speedtest-cli
+apt-get install -y nginx
+apt-get install -y p7zip-full
+apt-get install -y dropbear
 
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
