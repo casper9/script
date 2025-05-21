@@ -2,12 +2,6 @@
 #
 # ==================================================
 # initializing var
-export DEBIAN_FRONTEND=noninteractive
-MYIP=$(curl -sS ipv4.icanhazip.com);
-MYIP2="s/xxxxxxxxx/$MYIP/g";
-NET=$(ip -o $ANU -4 route show to default | awk '{print $5}');
-source /etc/os-release
-ver=$VERSION_ID
 
 #detail nama perusahaan
 country=ID
@@ -25,63 +19,8 @@ chmod +x /etc/pam.d/common-password
 # go to root
 cd
 
-# Edit file /etc/systemd/system/rc-local.service
-cat > /etc/systemd/system/rc-local.service <<-END
-[Unit]
-Description=/etc/rc.local
-ConditionPathExists=/etc/rc.local
-[Service]
-Type=forking
-ExecStart=/etc/rc.local start
-TimeoutSec=0
-StandardOutput=tty
-RemainAfterExit=yes
-SysVStartPriority=99
-[Install]
-WantedBy=multi-user.target
-END
-
-# nano /etc/rc.local
-cat > /etc/rc.local <<-END
-#!/bin/sh -e
-# rc.local
-# By default this script does nothing.
-exit 0
-END
-
-# Ubah izin akses
-chmod +x /etc/rc.local
-
-# enable rc local
-systemctl enable rc-local
-systemctl start rc-local.service
-
-# disable ipv6
-echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
-sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.local
-
-
-# set time GMT +7
-ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-
 # set locale
 sed -i 's/AcceptEnv/#AcceptEnv/g' /etc/ssh/sshd_config
-
-# install webserver
-cd
-rm /etc/nginx/sites-enabled/default
-rm /etc/nginx/sites-available/default
-curl https://raw.githubusercontent.com/casper9/script/main/nginx.conf > /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/casper9/script/main/vps.conf > /etc/nginx/conf.d/vps.conf
-sed -i 's/listen = \/var\/run\/php-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php/fpm/pool.d/www.conf
-useradd -m vps;
-mkdir -p /home/vps/public_html
-echo "<?php phpinfo() ?>" > /home/vps/public_html/info.php
-chown -R www-data:www-data /home/vps/public_html
-chmod -R g+rw /home/vps/public_html
-cd /home/vps/public_html
-wget -O /home/vps/public_html/index.html "https://raw.githubusercontent.com/casper9/script/main/index.html"
-/etc/init.d/nginx restart
 
 # install badvpn
 cd
