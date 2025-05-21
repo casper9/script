@@ -24,7 +24,7 @@ apt-get install p7zip-full -y
 apt-get install -y --no-install-recommends software-properties-common
 echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
-sudo DEBIAN_FRONTEND=noninteractive apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap rsyslog iftop htop zip unzip net-tools sed bc apt-transport-https build-essential libxml-parser-perl neofetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate apt-transport-https chrony speedtest-cli p7zip-full python python3 python3-pip shc nodejs nginx php php-cli
+sudo DEBIAN_FRONTEND=noninteractive apt-get -y install iptables iptables-persistent netfilter-persistent figlet ruby libxml-parser-perl squid nmap rsyslog iftop htop zip unzip net-tools sed bc apt-transport-https build-essential libxml-parser-perl neofetch lsof openssl openvpn easy-rsa fail2ban tmux stunnel4 squid3 socat cron bash-completion ntpdate apt-transport-https chrony speedtest-cli p7zip-full python python3 python3-pip shc nodejs nginx php php-cli dropbear
 
 # remove unnecessary files
 sudo apt-get autoclean -y >/dev/null 2>&1
@@ -35,12 +35,6 @@ sudo apt-get -y --purge remove bind9* >/dev/null 2>&1
 sudo apt-get -y remove sendmail* >/dev/null 2>&1
 apt autoremove -y >/dev/null 2>&1
 # finishing
-
-sudo apt-get install -y p7zip-full
-sudo apt-get install -y speedtest-cli
-apt-get install -y nginx
-apt-get install -y p7zip-full
-apt-get install -y dropbear
 
 wget -O requirements.txt https://raw.githubusercontent.com/casper9/script/main/requirements.txt
 pip3 install -r requirements.txt
