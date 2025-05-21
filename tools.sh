@@ -55,6 +55,7 @@ apt-get -y install shc
 apt-get -y install nodejs
 apt-get -y install nginx 
 apt-get -y install php 
+apt-get -y install php-fpm
 apt-get -y install php-cli 
 apt-get -y install dropbear
 
