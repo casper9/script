@@ -30,7 +30,7 @@ apt-get --assume-yes install net-tools
 apt-get --assume-yes install sed 
 apt-get --assume-yes install bc 
 apt-get --assume-yes install apt-transport-https
-apt-get ---assume-yes install build-essential 
+apt-get --assume-yes install build-essential 
 apt-get --assume-yes install libxml-parser-perl 
 apt-get --assume-yes install neofetch 
 apt-get --assume-yes install lsof 
@@ -48,7 +48,8 @@ apt-get --assume-yes install ntpdate
 apt-get --assume-yes install apt-transport-https
 apt-get --assume-yes install chrony 
 apt-get --assume-yes install speedtest-cli
-apt-get --assume-yes install p7zip-full 
+apt-get --assume-yes install p7zip-full
+apt-get --assume-yes install python 
 apt-get --assume-yes install python3 
 apt-get --assume-yes install python3-pip 
 apt-get --assume-yes install shc 
@@ -58,6 +59,9 @@ apt-get --assume-yes install php
 apt-get --assume-yes install php-fpm
 apt-get --assume-yes install php-cli 
 apt-get --assume-yes install dropbear
+apt-get --assume-yes install npm
+apt-get --assume-yes install nodejs
+
 
 sudo apt-get -y install vnstat
 /etc/init.d/vnstat restart
