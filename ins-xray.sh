@@ -17,6 +17,7 @@ echo -e "
 date
 echo ""
 cd
+usrn=$(cat /etc/profil)
 if [[ -e /etc/xray/domain ]]; then
 domain=$(cat /etc/xray/domain)
 else
@@ -546,6 +547,34 @@ systemctl restart xray
 systemctl restart nginx
 systemctl enable runn
 systemctl restart runn
+
+#create SSL WEB
+sudo apt install certbot python3-certbot-nginx -y
+sed -i 's/server_name  127.0.0.1 localhost;/server_name $domain;/g' /etc/nginx/conf.d/vps.conf
+sudo certbot --nginx -d $domain --non-interactive --agree-tos --email $usrn@$domain --redirect
+mv /etc/nginx/conf.d/vps.conf /etc/nginx/conf.d/v
+cat > /etc/nginx/conf.d/vps.conf << END
+server {
+  server_name  $domain;
+  access_log /var/log/nginx/vps-access.log;
+  error_log /var/log/nginx/vps-error.log error;
+  root   /home/vps/public_html;
+
+  location / {
+    index  index.html index.htm index.php;
+    try_files $uri $uri/ /index.php?$args;
+  }
+
+  location ~ \.php$ {
+    include /etc/nginx/fastcgi_params;
+    fastcgi_pass  127.0.0.1:9000;
+    fastcgi_index index.php;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+  }
+}
+END
+
+systemctl restart nginx
 
 sleep 0.5
 yellow() { echo -e "\\033[33;1m${*}\\033[0m"; }
