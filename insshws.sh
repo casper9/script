@@ -52,6 +52,6 @@ Restart=on-failure
 WantedBy=multi-user.target
 END
 
+systemctl daemon-reload
 systemctl enable ws-stunnel.service
-systemctl start ws-stunnel.service
 systemctl restart ws-stunnel.service
