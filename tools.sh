@@ -50,6 +50,7 @@ apt-get --assume-yes install chrony
 apt-get --assume-yes install speedtest-cli
 apt-get --assume-yes install p7zip-full
 apt-get --assume-yes install python 
+apt-get --assume-yes install python2
 apt-get --assume-yes install python3 
 apt-get --assume-yes install python3-pip 
 apt-get --assume-yes install shc 
