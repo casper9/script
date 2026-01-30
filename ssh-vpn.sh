@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# ==========================================
-# CLEAN SSH/VPN INSTALLER (ID)
-# - Skip otomatis kalau file/komponen sudah ada
-# - Auto-check UDP/TUN support
-# - Hindari prompt "replace? y/n" dari vpn.zip (skip bila OpenVPN sudah terpasang)
-# - Download aman: tulis ke /tmp dulu lalu mv (hindari curl error 23 karena direct write)
-# ==========================================
-
 BASE="https://raw.githubusercontent.com/casper9/script/main"
 
-# detail cert (stunnel self-signed)
+# detail cert
 country=ID
 state=Indonesia
 locality=Jakarta
@@ -27,31 +19,36 @@ die(){  echo -e "\033[1;31m[ERR]\033[0m  $*" >&2; exit 1; }
 
 need_root(){ [[ "${EUID}" -eq 0 ]] || die "Jalankan sebagai root"; }
 
-# FORCE=1 untuk paksa overwrite / reinstall
-FORCE="${FORCE:-0}"
-
-# download file: kalau sudah ada & FORCE=0 -> skip
+# =========================
+# SAFE DOWNLOAD (SKIP IF EXISTS)
+# - kalau file sudah ada & tidak kosong: SKIP
+# - kalau file kosong/ga ada: download
+# - download ke /tmp dulu lalu mv (anti curl(23)/file busy)
+# - auto chmod +x untuk path tertentu
+# =========================
 download(){
   local url="$1" out="$2"
-  local dir tmp
 
-  dir="$(dirname "$out")"
-  mkdir -p "$dir"
-
-  if [[ "$FORCE" != "1" && -s "$out" ]]; then
-    log "Skip download (sudah ada): $out"
+  if [[ -f "$out" ]] && [[ -s "$out" ]]; then
+    log "SKIP (sudah ada): $out"
     return 0
   fi
 
-  tmp="/tmp/$(basename "$out").$$.tmp"
-  rm -f "$tmp" 2>/dev/null || true
+  mkdir -p "$(dirname "$out")" 2>/dev/null || true
+  local tmp="/tmp/.$(basename "$out").$$"
 
-  # pakai curl ke tmp dulu, baru mv (lebih aman daripada langsung ke /usr/sbin dll)
-  curl -fsSL "$url" -o "$tmp" || { rm -f "$tmp" || true; die "Gagal download: $url"; }
+  curl -fsSL "$url" -o "$tmp" || {
+    rm -f "$tmp" 2>/dev/null || true
+    die "Download gagal: $url"
+  }
 
-  chmod +x "$tmp" 2>/dev/null || true
   mv -f "$tmp" "$out"
-  ok "Downloaded: $out"
+
+  case "$out" in
+    /usr/sbin/*|/usr/bin/*|/usr/local/bin/*|/root/*.sh)
+      chmod +x "$out" 2>/dev/null || true
+      ;;
+  esac
 }
 
 php_pool_file(){
@@ -65,7 +62,6 @@ apt_prepare(){
   export DEBIAN_FRONTEND=noninteractive
   log "Install dependency..."
   apt-get update -y
-
   apt-get install -y \
     curl wget unzip zip git jq ca-certificates gnupg lsb-release \
     nginx php-fpm \
@@ -74,7 +70,6 @@ apt_prepare(){
     cron p7zip-full bc lsof \
     socat xz-utils dnsutils \
     pwgen netcat-openbsd
-
   ok "Dependency siap"
 }
 
@@ -108,15 +103,8 @@ udp_support_check(){
 apply_password_policy(){
   log "Apply PAM password policy (optional)..."
   if curl -fsSL "${BASE}/password" >/dev/null 2>&1; then
-    # skip kalau sudah ada & FORCE=0
-    if [[ "$FORCE" != "1" && -s /etc/pam.d/common-password ]]; then
-      log "Skip apply common-password (sudah ada)"
-      return 0
-    fi
-    curl -fsSL "${BASE}/password" \
-      | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 \
+    curl -sS "${BASE}/password" | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 \
       > /etc/pam.d/common-password || warn "Gagal apply common-password (skip)"
-    ok "common-password updated"
   else
     warn "File password policy tidak ada (skip)"
   fi
@@ -124,7 +112,6 @@ apply_password_policy(){
 
 setup_nginx_php(){
   log "Setup nginx + php-fpm..."
-
   rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default || true
 
   download "${BASE}/nginx.conf" /etc/nginx/nginx.conf
@@ -137,22 +124,13 @@ setup_nginx_php(){
 
   id vps >/dev/null 2>&1 || useradd -m vps || true
   mkdir -p /home/vps/public_html
-
-  # index.html: skip bila sudah ada
-  if [[ "$FORCE" == "1" || ! -s /home/vps/public_html/index.html ]]; then
-    download "${BASE}/index.html" /home/vps/public_html/index.html
-  else
-    log "Skip index.html (sudah ada)"
-  fi
-
-  if [[ "$FORCE" == "1" || ! -s /home/vps/public_html/info.php ]]; then
-    echo "<?php phpinfo(); ?>" > /home/vps/public_html/info.php
-  fi
+  echo "<?php phpinfo(); ?>" > /home/vps/public_html/info.php
+  download "${BASE}/index.html" /home/vps/public_html/index.html
 
   chown -R www-data:www-data /home/vps/public_html
   chmod -R g+rw /home/vps/public_html
 
-  # restart php-fpm versi yang ada (tanpa wildcard)
+  # restart php-fpm (tanpa wildcard systemctl)
   systemctl restart php8.3-fpm 2>/dev/null || \
   systemctl restart php8.2-fpm 2>/dev/null || \
   systemctl restart php8.1-fpm 2>/dev/null || true
@@ -164,15 +142,12 @@ setup_nginx_php(){
 setup_badvpn(){
   log "Install badvpn..."
 
-  # jika badvpn sudah ada & FORCE=0 -> skip
-  if [[ "$FORCE" != "1" && -s /usr/sbin/badvpn ]]; then
-    log "Skip badvpn binary (sudah ada)"
-  else
-    download "${BASE}/badvpn" /usr/sbin/badvpn
-    chmod +x /usr/sbin/badvpn || true
-  fi
+  # kalau badvpn sedang running dan kamu mau replace, stop dulu.
+  # Tapi karena download() SKIP bila file sudah ada, ini aman.
+  # Kalau kamu ingin FORCE update badvpn, hapus dulu /usr/sbin/badvpn.
+  download "${BASE}/badvpn" /usr/sbin/badvpn
+  chmod +x /usr/sbin/badvpn || true
 
-  # service files
   download "${BASE}/badvpn1.service" /etc/systemd/system/badvpn1.service
   download "${BASE}/badvpn2.service" /etc/systemd/system/badvpn2.service
   download "${BASE}/badvpn3.service" /etc/systemd/system/badvpn3.service
@@ -216,11 +191,7 @@ setup_stunnel(){
   log "Setup stunnel..."
   mkdir -p /etc/stunnel
 
-  # kalau config sudah ada & FORCE=0 -> jangan overwrite
-  if [[ "$FORCE" != "1" && -s /etc/stunnel/stunnel.conf && -s /etc/stunnel/stunnel.pem ]]; then
-    log "Skip stunnel config (sudah ada)"
-  else
-    cat > /etc/stunnel/stunnel.conf <<EOF
+  cat > /etc/stunnel/stunnel.conf <<EOF
 cert = /etc/stunnel/stunnel.pem
 client = no
 socket = a:SO_REUSEADDR=1
@@ -244,11 +215,10 @@ accept = 990
 connect = 127.0.0.1:1194
 EOF
 
-    openssl genrsa -out /root/key.pem 2048
-    openssl req -new -x509 -key /root/key.pem -out /root/cert.pem -days 1095 \
-      -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
-    cat /root/key.pem /root/cert.pem > /etc/stunnel/stunnel.pem
-  fi
+  openssl genrsa -out /root/key.pem 2048
+  openssl req -new -x509 -key /root/key.pem -out /root/cert.pem -days 1095 \
+    -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
+  cat /root/key.pem /root/cert.pem > /etc/stunnel/stunnel.pem
 
   sed -i 's/^ENABLED=.*/ENABLED=1/g' /etc/default/stunnel4 || true
   systemctl restart stunnel4 2>/dev/null || service stunnel4 restart || true
@@ -258,54 +228,20 @@ EOF
 run_remote_script(){
   local name="$1"
   log "Run ${name}..."
+  download "${BASE}/${name}" "/root/${name}"
+  chmod +x "/root/${name}" 2>/dev/null || true
 
-  # download script ke /root, skip kalau sudah ada dan FORCE=0
-  if [[ "$FORCE" != "1" && -s "/root/${name}" ]]; then
-    log "Skip download script (sudah ada): /root/${name}"
-  else
-    download "${BASE}/${name}" "/root/${name}"
-    chmod +x "/root/${name}" 2>/dev/null || true
-  fi
-
-  # penting: matikan STDIN biar gak nge-freeze kalau script interaktif
-  timeout 3600 bash "/root/${name}" </dev/null || warn "${name} timeout/gagal (skip)"
-}
-
-# =========================
-# SKIP OPENVPN INSTALL kalau sudah ada
-# (ini mencegah prompt unzip vpn.zip)
-# =========================
-openvpn_installed(){
-  [[ -f /etc/openvpn/server.conf ]] || [[ -d /etc/openvpn/server ]] || systemctl list-unit-files | grep -qi openvpn@ || false
+  # biar gak "kejeda" kalau script remote minta input
+  timeout 1800 bash "/root/${name}" || warn "${name} timeout/gagal (skip)"
 }
 
 install_openvpn_slowdns_udp(){
-  # OpenVPN
-  if [[ "$FORCE" == "1" ]]; then
-    run_remote_script "vpn.sh"
-  else
-    if openvpn_installed; then
-      log "OpenVPN sudah terpasang -> SKIP vpn.sh (biar gak mentok vpn.zip)"
-    else
-      run_remote_script "vpn.sh"
-    fi
-  fi
+  run_remote_script "vpn.sh"
+  run_remote_script "slowdns.sh" || warn "slowdns gagal/skip"
 
-  # SlowDNS (skip bila sudah ada binary/config umum)
-  if [[ "$FORCE" != "1" && ( -f /etc/slowdns/server.key || -f /usr/bin/slowdns || -f /usr/local/bin/slowdns ) ]]; then
-    log "SlowDNS terdeteksi -> skip slowdns.sh"
-  else
-    run_remote_script "slowdns.sh" || warn "slowdns gagal/skip"
-  fi
-
-  # UDP Custom (auto-check)
   if udp_support_check; then
-    if [[ "$FORCE" != "1" && ( -f /etc/udp/udp.conf || -f /usr/bin/udp-custom || -f /usr/local/bin/udp-custom ) ]]; then
-      log "UDP Custom terdeteksi -> skip udp-custom.sh"
-    else
-      run_remote_script "udp-custom.sh"
-      ok "udp-custom OK"
-    fi
+    run_remote_script "udp-custom.sh"
+    ok "udp-custom OK"
   else
     warn "udp-custom SKIP (VPS tidak support UDP/TUN)"
   fi
@@ -327,7 +263,7 @@ setup_swap(){
 
 install_ddos_deflate(){
   log "Install DDOS-Deflate (optional)..."
-  if [[ -d /usr/local/ddos && "$FORCE" != "1" ]]; then
+  if [[ -d /usr/local/ddos ]]; then
     warn "DDOS-Deflate sudah ada, skip"
     return
   fi
@@ -346,13 +282,7 @@ setup_banner(){
   log "Setup banner..."
   grep -q "^Banner /etc/issue.net" /etc/ssh/sshd_config || echo "Banner /etc/issue.net" >>/etc/ssh/sshd_config
   sed -i 's@^DROPBEAR_BANNER=.*@DROPBEAR_BANNER="/etc/issue.net"@g' /etc/default/dropbear || true
-
-  # issue.net
-  if [[ "$FORCE" == "1" || ! -s /etc/issue.net ]]; then
-    download "${BASE}/issue.net" /etc/issue.net
-  else
-    log "Skip /etc/issue.net (sudah ada)"
-  fi
+  download "${BASE}/issue.net" /etc/issue.net
 
   systemctl restart ssh 2>/dev/null || true
   systemctl restart dropbear 2>/dev/null || true
@@ -361,10 +291,6 @@ setup_banner(){
 
 run_bbr(){
   log "Install BBR (optional)..."
-  if [[ "$FORCE" != "1" && ( -f /etc/sysctl.d/99-bbr.conf || grep -q "tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null ) ]]; then
-    log "BBR sudah terdeteksi -> skip bbr.sh"
-    return
-  fi
   run_remote_script "bbr.sh" || warn "BBR gagal/skip"
 }
 
@@ -460,7 +386,6 @@ main(){
 
   clear
   ok "SELESAI. Reboot disarankan: reboot"
-  log "Kalau mau paksa reinstall: FORCE=1 bash installer.sh"
 }
 
 main "$@"
