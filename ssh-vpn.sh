@@ -19,9 +19,36 @@ die(){  echo -e "\033[1;31m[ERR]\033[0m  $*" >&2; exit 1; }
 
 need_root(){ [[ "${EUID}" -eq 0 ]] || die "Jalankan sebagai root"; }
 
+# =========================
+# SAFE DOWNLOAD (SKIP IF EXISTS)
+# - kalau file sudah ada & tidak kosong: SKIP
+# - kalau file kosong/ga ada: download
+# - download ke /tmp dulu lalu mv (anti curl(23)/file busy)
+# - auto chmod +x untuk path tertentu
+# =========================
 download(){
   local url="$1" out="$2"
-  curl -fsSL "$url" -o "$out"
+
+  if [[ -f "$out" ]] && [[ -s "$out" ]]; then
+    log "SKIP (sudah ada): $out"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$out")" 2>/dev/null || true
+  local tmp="/tmp/.$(basename "$out").$$"
+
+  curl -fsSL "$url" -o "$tmp" || {
+    rm -f "$tmp" 2>/dev/null || true
+    die "Download gagal: $url"
+  }
+
+  mv -f "$tmp" "$out"
+
+  case "$out" in
+    /usr/sbin/*|/usr/bin/*|/usr/local/bin/*|/root/*.sh)
+      chmod +x "$out" 2>/dev/null || true
+      ;;
+  esac
 }
 
 php_pool_file(){
@@ -114,8 +141,13 @@ setup_nginx_php(){
 
 setup_badvpn(){
   log "Install badvpn..."
+
+  # kalau badvpn sedang running dan kamu mau replace, stop dulu.
+  # Tapi karena download() SKIP bila file sudah ada, ini aman.
+  # Kalau kamu ingin FORCE update badvpn, hapus dulu /usr/sbin/badvpn.
   download "${BASE}/badvpn" /usr/sbin/badvpn
   chmod +x /usr/sbin/badvpn || true
+
   download "${BASE}/badvpn1.service" /etc/systemd/system/badvpn1.service
   download "${BASE}/badvpn2.service" /etc/systemd/system/badvpn2.service
   download "${BASE}/badvpn3.service" /etc/systemd/system/badvpn3.service
@@ -357,3 +389,4 @@ main(){
 }
 
 main "$@"
+```0
