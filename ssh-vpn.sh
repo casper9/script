@@ -1,9 +1,9 @@
-#!/bin/bash
-#
-# ==================================================
-# initializing var
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-#detail nama perusahaan
+BASE="https://raw.githubusercontent.com/casper9/script/main"
+
+# detail cert
 country=ID
 state=Indonesia
 locality=Jakarta
@@ -12,88 +12,163 @@ organizationalunit=none
 commonname=none
 email=none
 
-# simple password minimal
-curl -sS https://raw.githubusercontent.com/casper9/script/main/password | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 > /etc/pam.d/common-password
-chmod +x /etc/pam.d/common-password
+log(){ echo -e "\033[1;36m[INFO]\033[0m $*"; }
+ok(){  echo -e "\033[1;32m[OK]\033[0m   $*"; }
+warn(){echo -e "\033[1;33m[WARN]\033[0m $*"; }
+die(){ echo -e "\033[1;31m[ERR]\033[0m  $*" >&2; exit 1; }
 
-# go to root
-cd
+need_root(){ [[ "${EUID}" -eq 0 ]] || die "Jalankan sebagai root"; }
 
-# set locale
-sed -i 's/AcceptEnv/#AcceptEnv/g' /etc/ssh/sshd_config
+apt_prepare(){
+  export DEBIAN_FRONTEND=noninteractive
+  log "Install dependency..."
+  apt-get update -y
+  apt-get install -y \
+    curl wget unzip git jq ca-certificates gnupg lsb-release \
+    nginx php-fpm \
+    dropbear stunnel4 openssl \
+    iptables iptables-persistent netfilter-persistent \
+    cron p7zip-full bc lsof
+  ok "Dependency siap"
+}
 
-# install webserver
-cd
-rm /etc/nginx/sites-enabled/default
-rm /etc/nginx/sites-available/default
-curl https://raw.githubusercontent.com/casper9/script/main/nginx.conf > /etc/nginx/nginx.conf
-curl https://raw.githubusercontent.com/casper9/script/main/vps.conf > /etc/nginx/conf.d/vps.conf
-sed -i 's/listen = \/var\/run\/php-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php/fpm/pool.d/www.conf
-useradd -m vps;
-mkdir -p /home/vps/public_html
-echo "<?php phpinfo() ?>" > /home/vps/public_html/info.php
-chown -R www-data:www-data /home/vps/public_html
-chmod -R g+rw /home/vps/public_html
-cd /home/vps/public_html
-wget -O /home/vps/public_html/index.html "https://raw.githubusercontent.com/casper9/script/main/index.html"
-/etc/init.d/nginx restart
+php_pool_file(){
+  local f
+  f="$(ls -1 /etc/php/*/fpm/pool.d/www.conf 2>/dev/null | head -n 1 || true)"
+  [[ -n "$f" ]] || die "php-fpm pool www.conf tidak ditemukan"
+  echo "$f"
+}
 
-# install badvpn
-cd
-wget -O /usr/sbin/badvpn "https://raw.githubusercontent.com/casper9/script/main/badvpn" >/dev/null 2>&1
-chmod +x /usr/sbin/badvpn > /dev/null 2>&1
-wget -q -O /etc/systemd/system/badvpn1.service "https://raw.githubusercontent.com/casper9/script/main/badvpn1.service" >/dev/null 2>&1
-wget -q -O /etc/systemd/system/badvpn2.service "https://raw.githubusercontent.com/casper9/script/main/badvpn2.service" >/dev/null 2>&1
-wget -q -O /etc/systemd/system/badvpn3.service "https://raw.githubusercontent.com/casper9/script/main/badvpn3.service" >/dev/null 2>&1
-systemctl disable badvpn1 
-systemctl stop badvpn1 
-systemctl enable badvpn1
-systemctl start badvpn1 
-systemctl disable badvpn2 
-systemctl stop badvpn2 
-systemctl enable badvpn2
-systemctl start badvpn2 
-systemctl disable badvpn3 
-systemctl stop badvpn3 
-systemctl enable badvpn3
-systemctl start badvpn3 
+download(){
+  local url="$1" out="$2"
+  curl -fsSL "$url" -o "$out"
+  chmod +x "$out" 2>/dev/null || true
+}
 
+# =========================
+# AUTO CHECK UDP SUPPORT
+# =========================
+udp_support_check(){
+  log "Cek dukungan UDP/TUN di VPS..."
 
-# setting port ssh
-cd
-sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 500' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 40000' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 51443' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 58080' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 53' /etc/ssh/sshd_config
-sed -i '/Port 22/a Port 22' /etc/ssh/sshd_config
-/etc/init.d/ssh restart
+  if [[ ! -c /dev/net/tun ]]; then
+    warn "/dev/net/tun tidak ada. Coba buat..."
+    mkdir -p /dev/net || true
+    mknod /dev/net/tun c 10 200 2>/dev/null || true
+    chmod 600 /dev/net/tun 2>/dev/null || true
+  fi
 
-cd
-sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=143/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_EXTRA_ARGS=/#DROPBEAR_EXTRA_ARGS=/g' /etc/default/dropbear
-sed -i '/arguments for Dropbear/a DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69"' /etc/default/dropbear
-echo "/bin/false" >> /etc/shells
-echo "/usr/sbin/nologin" >> /etc/shells
-/etc/init.d/ssh restart
-/etc/init.d/dropbear restart
+  if [[ ! -c /dev/net/tun ]]; then
+    warn "TUN tidak tersedia. UDP Custom kemungkinan gagal."
+    return 1
+  fi
 
-# install stunnel
-cd
-cat > /etc/stunnel/stunnel.conf <<-END
+  if ! iptables -t mangle -L >/dev/null 2>&1; then
+    warn "iptables mangle tidak tersedia. UDP Custom kemungkinan gagal."
+    return 1
+  fi
+
+  ok "UDP/TUN terlihat OK."
+  return 0
+}
+
+apply_password_policy(){
+  log "Apply PAM password policy (optional)..."
+  if curl -fsSL "${BASE}/password" >/dev/null 2>&1; then
+    curl -sS "${BASE}/password" | openssl aes-256-cbc -d -a -pass pass:scvps07gg -pbkdf2 \
+      > /etc/pam.d/common-password || warn "Gagal apply common-password (skip)"
+  else
+    warn "File password policy tidak ada (skip)"
+  fi
+}
+
+setup_nginx_php(){
+  log "Setup nginx + php-fpm..."
+  rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default || true
+
+  download "${BASE}/nginx.conf" /etc/nginx/nginx.conf
+  mkdir -p /etc/nginx/conf.d
+  download "${BASE}/vps.conf" /etc/nginx/conf.d/vps.conf
+
+  local pool
+  pool="$(php_pool_file)"
+  # set listen ke 127.0.0.1:9000
+  sed -i 's|^listen\s*=.*|listen = 127.0.0.1:9000|g' "$pool"
+
+  id vps >/dev/null 2>&1 || useradd -m vps || true
+  mkdir -p /home/vps/public_html
+  echo "<?php phpinfo(); ?>" > /home/vps/public_html/info.php
+  download "${BASE}/index.html" /home/vps/public_html/index.html
+
+  chown -R www-data:www-data /home/vps/public_html
+  chmod -R g+rw /home/vps/public_html
+
+  systemctl restart php*-fpm 2>/dev/null || true
+  systemctl restart nginx || true
+  ok "nginx+php siap"
+}
+
+setup_badvpn(){
+  log "Install badvpn..."
+  download "${BASE}/badvpn" /usr/sbin/badvpn
+  download "${BASE}/badvpn1.service" /etc/systemd/system/badvpn1.service
+  download "${BASE}/badvpn2.service" /etc/systemd/system/badvpn2.service
+  download "${BASE}/badvpn3.service" /etc/systemd/system/badvpn3.service
+
+  systemctl daemon-reload
+  for s in badvpn1 badvpn2 badvpn3; do
+    systemctl enable "$s" >/dev/null 2>&1 || true
+    systemctl restart "$s" >/dev/null 2>&1 || true
+  done
+  ok "badvpn jalan"
+}
+
+setup_ssh_ports(){
+  log "Setting SSH ports..."
+  sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/g' /etc/ssh/sshd_config || true
+  sed -i 's/^#\?AcceptEnv/##AcceptEnv/g' /etc/ssh/sshd_config || true
+
+  # tambah port tanpa duplikat
+  for p in 22 53 500 40000 51443 58080; do
+    if ! grep -qE "^Port ${p}$" /etc/ssh/sshd_config; then
+      echo "Port ${p}" >> /etc/ssh/sshd_config
+    fi
+  done
+
+  systemctl restart ssh || service ssh restart || true
+  ok "sshd OK"
+}
+
+setup_dropbear(){
+  log "Setup dropbear..."
+  sed -i 's/^NO_START=.*/NO_START=0/g' /etc/default/dropbear || true
+  sed -i 's/^DROPBEAR_PORT=.*/DROPBEAR_PORT=143/g' /etc/default/dropbear || true
+  sed -i '/^DROPBEAR_EXTRA_ARGS=/d' /etc/default/dropbear || true
+  echo 'DROPBEAR_EXTRA_ARGS="-p 50000 -p 109 -p 110 -p 69"' >> /etc/default/dropbear
+
+  grep -q "/bin/false" /etc/shells || echo "/bin/false" >> /etc/shells
+  grep -q "/usr/sbin/nologin" /etc/shells || echo "/usr/sbin/nologin" >> /etc/shells
+
+  systemctl restart dropbear || service dropbear restart || true
+  ok "dropbear OK"
+}
+
+setup_stunnel(){
+  log "Setup stunnel..."
+  mkdir -p /etc/stunnel
+
+  cat > /etc/stunnel/stunnel.conf <<EOF
 cert = /etc/stunnel/stunnel.pem
 client = no
 socket = a:SO_REUSEADDR=1
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
 
-[dropbear]
+[dropbear_22]
 accept = 8880
 connect = 127.0.0.1:22
 
-[dropbear]
+[dropbear_109]
 accept = 8443
 connect = 127.0.0.1:109
 
@@ -104,150 +179,174 @@ connect = 700
 [openvpn]
 accept = 990
 connect = 127.0.0.1:1194
+EOF
 
-END
+  openssl genrsa -out /root/key.pem 2048
+  openssl req -new -x509 -key /root/key.pem -out /root/cert.pem -days 1095 \
+    -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
+  cat /root/key.pem /root/cert.pem > /etc/stunnel/stunnel.pem
 
-# make a certificate
-openssl genrsa -out key.pem 2048
-openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
--subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
-cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
+  sed -i 's/^ENABLED=.*/ENABLED=1/g' /etc/default/stunnel4 || true
+  systemctl restart stunnel4 || service stunnel4 restart || true
+  ok "stunnel OK"
+}
 
-# konfigurasi stunnel
-sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
-/etc/init.d/stunnel4 restart
+run_remote_script(){
+  local name="$1"
+  log "Run ${name}..."
+  download "${BASE}/${name}" "/root/${name}"
+  bash "/root/${name}"
+}
 
-#OpenVPN
-cd
-wget https://raw.githubusercontent.com/casper9/script/main/vpn.sh &&  chmod +x vpn.sh && ./vpn.sh
+install_openvpn_slowdns_udp(){
+  run_remote_script "vpn.sh"
+  run_remote_script "slowdns.sh" || warn "slowdns gagal/skip"
 
-#slowdns
-cd
-wget https://raw.githubusercontent.com/casper9/script/main/slowdns.sh && chmod +x slowdns.sh && ./slowdns.sh
+  if udp_support_check; then
+    run_remote_script "udp-custom.sh"
+    ok "udp-custom OK"
+  else
+    warn "udp-custom SKIP (VPS tidak support UDP/TUN)"
+  fi
+}
 
-#udpcostum
-cd
-wget https://raw.githubusercontent.com/casper9/script/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh
+setup_swap(){
+  log "Setup swap 10GB (jika belum ada)..."
+  if swapon --show | grep -q "/swapfile"; then
+    ok "Swap sudah ada"
+    return
+  fi
+  fallocate -l 10G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=10240
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null
+  swapon /swapfile
+  grep -q "^/swapfile" /etc/fstab || echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+  ok "Swap OK"
+}
 
-# memory swap 10gb
-cd
-dd if=/dev/zero of=/swapfile bs=1024 count=5242880
-mkswap /swapfile
-chown root:root /swapfile
-chmod 0600 /swapfile >/dev/null 2>&1
-swapon /swapfile >/dev/null 2>&1
-sed -i '$ i\/swapfile      swap swap   defaults    0 0' /etc/fstab
+install_ddos_deflate(){
+  log "Install DDOS-Deflate (optional)..."
+  if [[ -d /usr/local/ddos ]]; then
+    warn "DDOS-Deflate sudah ada, skip"
+    return
+  fi
+  mkdir -p /usr/local/ddos
+  wget -q -O /usr/local/ddos/ddos.conf http://www.inetbase.com/scripts/ddos/ddos.conf || true
+  wget -q -O /usr/local/ddos/LICENSE http://www.inetbase.com/scripts/ddos/LICENSE || true
+  wget -q -O /usr/local/ddos/ignore.ip.list http://www.inetbase.com/scripts/ddos/ignore.ip.list || true
+  wget -q -O /usr/local/ddos/ddos.sh http://www.inetbase.com/scripts/ddos/ddos.sh || true
+  chmod 0755 /usr/local/ddos/ddos.sh || true
+  ln -sf /usr/local/ddos/ddos.sh /usr/local/sbin/ddos || true
+  /usr/local/ddos/ddos.sh --cron >/dev/null 2>&1 || true
+  ok "DDOS-Deflate OK"
+}
 
-# Instal DDOS Flate
-if [ -d '/usr/local/ddos' ]; then
-	echo; echo; echo "Please un-install the previous version first"
-	exit 0
-else
-	mkdir /usr/local/ddos
-fi
-clear
-echo; echo 'Installing DOS-Deflate 0.6'; echo
-echo; echo -n 'Downloading source files...'
-wget -q -O /usr/local/ddos/ddos.conf http://www.inetbase.com/scripts/ddos/ddos.conf
-echo -n '.'
-wget -q -O /usr/local/ddos/LICENSE http://www.inetbase.com/scripts/ddos/LICENSE
-echo -n '.'
-wget -q -O /usr/local/ddos/ignore.ip.list http://www.inetbase.com/scripts/ddos/ignore.ip.list
-echo -n '.'
-wget -q -O /usr/local/ddos/ddos.sh http://www.inetbase.com/scripts/ddos/ddos.sh
-chmod 0755 /usr/local/ddos/ddos.sh
-cp -s /usr/local/ddos/ddos.sh /usr/local/sbin/ddos
-echo '...done'
-echo; echo -n 'Creating cron to run script every minute.....(Default setting)'
-/usr/local/ddos/ddos.sh --cron > /dev/null 2>&1
-echo '.....done'
-echo; echo 'Installation has completed.'
-echo 'Config file is at /usr/local/ddos/ddos.conf'
-echo 'Please send in your comments and/or suggestions to zaf@vsnl.com'
+setup_banner(){
+  log "Setup banner..."
+  grep -q "^Banner /etc/issue.net" /etc/ssh/sshd_config || echo "Banner /etc/issue.net" >>/etc/ssh/sshd_config
+  sed -i 's@^DROPBEAR_BANNER=.*@DROPBEAR_BANNER="/etc/issue.net"@g' /etc/default/dropbear || true
+  download "${BASE}/issue.net" /etc/issue.net
 
-# banner /etc/issue.net
-echo "Banner /etc/issue.net" >>/etc/ssh/sshd_config
-sed -i 's@DROPBEAR_BANNER=""@DROPBEAR_BANNER="/etc/issue.net"@g' /etc/default/dropbear
+  systemctl restart ssh || true
+  systemctl restart dropbear || true
+  ok "Banner OK"
+}
 
-# Ganti Banner
-wget -O /etc/issue.net "https://raw.githubusercontent.com/casper9/script/main/issue.net"
+run_bbr(){
+  log "Install BBR (optional)..."
+  run_remote_script "bbr.sh" || warn "BBR gagal/skip"
+}
 
-#install bbr dan optimasi kernel
-wget https://raw.githubusercontent.com/casper9/script/main/bbr.sh && chmod +x bbr.sh && ./bbr.sh
+block_torrent(){
+  log "Block torrent..."
+  for s in get_peers announce_peer find_node "BitTorrent" "BitTorrent protocol" peer_id= .torrent "announce.php?passkey=" torrent announce info_hash; do
+    iptables -C FORWARD -m string --algo bm --string "$s" -j DROP 2>/dev/null || \
+      iptables -A FORWARD -m string --algo bm --string "$s" -j DROP
+  done
 
-# blokir torrent
-iptables -A FORWARD -m string --string "get_peers" --algo bm -j DROP
-iptables -A FORWARD -m string --string "announce_peer" --algo bm -j DROP
-iptables -A FORWARD -m string --string "find_node" --algo bm -j DROP
-iptables -A FORWARD -m string --algo bm --string "BitTorrent" -j DROP
-iptables -A FORWARD -m string --algo bm --string "BitTorrent protocol" -j DROP
-iptables -A FORWARD -m string --algo bm --string "peer_id=" -j DROP
-iptables -A FORWARD -m string --algo bm --string ".torrent" -j DROP
-iptables -A FORWARD -m string --algo bm --string "announce.php?passkey=" -j DROP
-iptables -A FORWARD -m string --algo bm --string "torrent" -j DROP
-iptables -A FORWARD -m string --algo bm --string "announce" -j DROP
-iptables -A FORWARD -m string --algo bm --string "info_hash" -j DROP
-iptables-save > /etc/iptables.up.rules
-iptables-restore -t < /etc/iptables.up.rules
-netfilter-persistent save
-netfilter-persistent reload
+  # FIX: iptables-restore tidak pakai "-t"
+  iptables-save > /etc/iptables.up.rules
+  iptables-restore < /etc/iptables.up.rules
 
-# download script
-cd /usr/bin
-wget -O issue "https://raw.githubusercontent.com/casper9/script/main/issue.net"
-wget -O speedtest "https://raw.githubusercontent.com/casper9/script/main/speedtest_cli.py"
-wget -O xp "https://raw.githubusercontent.com/casper9/script/main/xp.sh"
+  systemctl enable netfilter-persistent >/dev/null 2>&1 || true
+  systemctl restart netfilter-persistent >/dev/null 2>&1 || true
+  ok "iptables OK"
+}
 
-chmod +x issue
-chmod +x speedtest
-chmod +x xp
-cd
+download_tools(){
+  log "Download tools..."
+  download "${BASE}/issue.net" /usr/bin/issue
+  download "${BASE}/speedtest_cli.py" /usr/bin/speedtest
+  download "${BASE}/xp.sh" /usr/bin/xp
+  chmod +x /usr/bin/issue /usr/bin/speedtest /usr/bin/xp
+  ok "tools OK"
+}
 
-#if [ ! -f "/etc/cron.d/xp_otm" ]; then
-cat> /etc/cron.d/xp_otm << END
+setup_cron(){
+  log "Setup cron..."
+  cat > /etc/cron.d/xp_otm <<'EOF'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 0 0 * * * root /usr/bin/xp
-END
-#fi
+EOF
 
-#if [ ! -f "/etc/cron.d/bckp_otm" ]; then
-cat> /etc/cron.d/bckp_otm << END
+  cat > /etc/cron.d/bckp_otm <<'EOF'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 10 */4 * * * root /usr/bin/bottelegram
-END
-#fi
+EOF
 
-cat> /etc/cron.d/tendang << END
+  cat > /etc/cron.d/tendang <<'EOF'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */13 * * * * root /usr/bin/tendang
-END
+EOF
 
-cat> /etc/cron.d/xraylimit << END
+  cat > /etc/cron.d/xraylimit <<'EOF'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */15 * * * * root /usr/bin/xraylimit
-END
+EOF
 
-cat> /etc/cron.d/autocpu << END
+  cat > /etc/cron.d/autocpu <<'EOF'
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 */20 * * * * root /usr/bin/autocpu
-END
+EOF
 
-service cron restart >/dev/null 2>&1
-service cron reload >/dev/null 2>&1
-service cron start >/dev/null 2>&1
+  systemctl restart cron || service cron restart || true
+  ok "cron OK"
+}
 
-cd
-chown -R www-data:www-data /home/vps/public_html
+cleanup(){
+  rm -f /root/key.pem /root/cert.pem /root/bbr.sh /root/ssh-vpn.sh 2>/dev/null || true
+  rm -rf /etc/apache2 2>/dev/null || true
+  chown -R www-data:www-data /home/vps/public_html 2>/dev/null || true
+}
 
-rm -f /root/key.pem
-rm -f /root/cert.pem
-rm -f /root/ssh-vpn.sh
-rm -f /root/bbr.sh
-rm -rf /etc/apache2
+main(){
+  need_root
+  apt_prepare
 
-clear
+  apply_password_policy
+  setup_nginx_php
+  setup_badvpn
+  setup_ssh_ports
+  setup_dropbear
+  setup_stunnel
+
+  install_openvpn_slowdns_udp
+  setup_swap
+  install_ddos_deflate
+  setup_banner
+  run_bbr
+  block_torrent
+  download_tools
+  setup_cron
+  cleanup
+
+  clear
+  ok "SELESAI. Reboot disarankan: reboot"
+}
+
+main "$@"
