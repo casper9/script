@@ -1,266 +1,251 @@
-import socket, threading, thread, select, signal, sys, time, getopt
+#!/usr/bin/env python3
+import base64
+import hashlib
+import socket
+import threading
+import select
+import sys
+import time
+from typing import Optional, Tuple
 
-# Listen
-LISTENING_ADDR = '0.0.0.0'
-if sys.argv[1:]:
-  LISTENING_PORT = sys.argv[1]
-else:
-  LISTENING_PORT = 700
-#Pass
-PASS = ''
+LISTENING_ADDR = "0.0.0.0"
+LISTENING_PORT = 700
 
-# CONST
-BUFLEN = 4096 * 4
+# Kalau mau pakai password, isi string-nya. Kalau kosong = no password check.
+PASS = ""
+
+BUFLEN = 16384
 TIMEOUT = 60
-DEFAULT_HOST = '127.0.0.1:69'
-RESPONSE = 'HTTP/1.1 101 Switching Protocol\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: foo\r\n\r\n'
+DEFAULT_HOST = "127.0.0.1:69"
+
+# Jika True: hitung Sec-WebSocket-Accept sesuai standar
+# Jika False: kirim "foo" (fake) seperti script lama
+STRICT_WEBSOCKET = True
+
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+def parse_hostport(hostport: str, fallback_port: int) -> Tuple[str, int]:
+    hostport = hostport.strip()
+    if ":" in hostport:
+        h, p = hostport.rsplit(":", 1)
+        try:
+            return h.strip(), int(p.strip())
+        except ValueError:
+            return hostport.strip(), fallback_port
+    return hostport, fallback_port
+
+
+def get_header(raw: bytes, name: str) -> str:
+    """
+    Cari header case-insensitive, toleran spasi.
+    """
+    try:
+        text = raw.decode("iso-8859-1", errors="ignore")
+    except Exception:
+        return ""
+    lines = text.split("\r\n")
+    name_l = name.lower()
+    for ln in lines:
+        if ":" not in ln:
+            continue
+        k, v = ln.split(":", 1)
+        if k.strip().lower() == name_l:
+            return v.strip()
+    return ""
+
+
+def build_ws_101_response(client_key: Optional[str]) -> bytes:
+    if not STRICT_WEBSOCKET:
+        return (
+            b"HTTP/1.1 101 Switching Protocols\r\n"
+            b"Upgrade: websocket\r\n"
+            b"Connection: Upgrade\r\n"
+            b"Sec-WebSocket-Accept: foo\r\n\r\n"
+        )
+
+    if not client_key:
+        # fallback kalau key nggak ada
+        accept = "foo"
+    else:
+        sha1 = hashlib.sha1((client_key + WS_GUID).encode("utf-8")).digest()
+        accept = base64.b64encode(sha1).decode("ascii")
+
+    resp = (
+        "HTTP/1.1 101 Switching Protocols\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Accept: {accept}\r\n\r\n"
+    )
+    return resp.encode("ascii")
+
 
 class Server(threading.Thread):
-    def __init__(self, host, port):
-        threading.Thread.__init__(self)
+    def __init__(self, host: str, port: int):
+        super().__init__(daemon=True)
         self.running = False
         self.host = host
         self.port = port
-        self.threads = []
-        self.threadsLock = threading.Lock()
-        self.logLock = threading.Lock()
+        self.conns = []
+        self.lock = threading.Lock()
 
     def run(self):
-        self.soc = socket.socket(socket.AF_INET)
-        self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.soc.settimeout(2)
-        intport = int(self.port)
-        self.soc.bind((self.host, intport))
-        self.soc.listen(0)
         self.running = True
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as soc:
+            soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            soc.bind((self.host, self.port))
+            soc.listen(128)
+            soc.settimeout(2)
+            print(f"[+] Listening on {self.host}:{self.port}")
 
-        try:
             while self.running:
                 try:
-                    c, addr = self.soc.accept()
-                    c.setblocking(1)
+                    c, addr = soc.accept()
+                    c.settimeout(10)
                 except socket.timeout:
                     continue
+                except Exception:
+                    continue
 
-                conn = ConnectionHandler(c, self, addr)
-                conn.start()
-                self.addConn(conn)
-        finally:
-            self.running = False
-            self.soc.close()
+                h = ConnectionHandler(c, addr, self)
+                h.start()
+                with self.lock:
+                    self.conns.append(h)
 
-    def printLog(self, log):
-        self.logLock.acquire()
-        print log
-        self.logLock.release()
+    def remove(self, h):
+        with self.lock:
+            if h in self.conns:
+                self.conns.remove(h)
 
-    def addConn(self, conn):
-        try:
-            self.threadsLock.acquire()
-            if self.running:
-                self.threads.append(conn)
-        finally:
-            self.threadsLock.release()
-
-    def removeConn(self, conn):
-        try:
-            self.threadsLock.acquire()
-            self.threads.remove(conn)
-        finally:
-            self.threadsLock.release()
-
-    def close(self):
-        try:
-            self.running = False
-            self.threadsLock.acquire()
-
-            threads = list(self.threads)
-            for c in threads:
-                c.close()
-        finally:
-            self.threadsLock.release()
+    def stop(self):
+        self.running = False
+        with self.lock:
+            for h in list(self.conns):
+                h.close()
 
 
 class ConnectionHandler(threading.Thread):
-    def __init__(self, socClient, server, addr):
-        threading.Thread.__init__(self)
-        self.clientClosed = False
-        self.targetClosed = True
-        self.client = socClient
-        self.client_buffer = ''
+    def __init__(self, client: socket.socket, addr, server: Server):
+        super().__init__(daemon=True)
+        self.client = client
+        self.addr = addr
         self.server = server
-        self.log = 'Connection: ' + str(addr)
+        self.target: Optional[socket.socket] = None
+        self.closed = False
 
     def close(self):
+        if self.closed:
+            return
+        self.closed = True
         try:
-            if not self.clientClosed:
-                self.client.shutdown(socket.SHUT_RDWR)
-                self.client.close()
-        except:
+            self.client.close()
+        except Exception:
             pass
-        finally:
-            self.clientClosed = True
-
         try:
-            if not self.targetClosed:
-                self.target.shutdown(socket.SHUT_RDWR)
+            if self.target:
                 self.target.close()
-        except:
+        except Exception:
             pass
-        finally:
-            self.targetClosed = True
+
+    def connect_target(self, hostport: str):
+        host, port = parse_hostport(hostport, 443)
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        af, socktype, proto, _, sa = infos[0]
+        self.target = socket.socket(af, socktype, proto)
+        self.target.settimeout(10)
+        self.target.connect(sa)
+        self.target.settimeout(None)
+
+    def relay(self):
+        assert self.target is not None
+        self.client.settimeout(None)
+        socks = [self.client, self.target]
+        idle = 0
+        while True:
+            r, _, e = select.select(socks, [], socks, 3)
+            if e:
+                break
+            if not r:
+                idle += 3
+                if idle >= TIMEOUT:
+                    break
+                continue
+            idle = 0
+            for s in r:
+                try:
+                    data = s.recv(BUFLEN)
+                    if not data:
+                        return
+                    if s is self.client:
+                        self.target.sendall(data)
+                    else:
+                        self.client.sendall(data)
+                except Exception:
+                    return
 
     def run(self):
         try:
-            self.client_buffer = self.client.recv(BUFLEN)
+            buf = self.client.recv(BUFLEN)
+            if not buf:
+                return
 
-            hostPort = self.findHeader(self.client_buffer, 'X-Real-Host')
+            hostport = get_header(buf, "X-Real-Host") or DEFAULT_HOST
+            xsplit = get_header(buf, "X-Split")
 
-            if hostPort == '':
-                hostPort = DEFAULT_HOST
+            if xsplit:
+                # buang 1 paket lagi (behavior lama)
+                try:
+                    _ = self.client.recv(BUFLEN)
+                except Exception:
+                    pass
 
-            split = self.findHeader(self.client_buffer, 'X-Split')
+            passwd = get_header(buf, "X-Pass")
 
-            if split != '':
-                self.client.recv(BUFLEN)
+            # policy: jika PASS di-set, harus match
+            if PASS and passwd != PASS:
+                self.client.sendall(b"HTTP/1.1 400 WrongPass!\r\n\r\n")
+                return
 
-            if hostPort != '':
-                passwd = self.findHeader(self.client_buffer, 'X-Pass')
-				
-                if len(PASS) != 0 and passwd == PASS:
-                    self.method_CONNECT(hostPort)
-                elif len(PASS) != 0 and passwd != PASS:
-                    self.client.send('HTTP/1.1 400 WrongPass!\r\n\r\n')
-                elif hostPort.startswith('127.0.0.1') or hostPort.startswith('localhost'):
-                    self.method_CONNECT(hostPort)
-                else:
-                    self.client.send('HTTP/1.1 403 Forbidden!\r\n\r\n')
-            else:
-                print '- No X-Real-Host!'
-                self.client.send('HTTP/1.1 400 NoXRealHost!\r\n\r\n')
+            # optional safety: block non-local target jika PASS kosong
+            if (not PASS) and not (hostport.startswith("127.0.0.1") or hostport.startswith("localhost")):
+                self.client.sendall(b"HTTP/1.1 403 Forbidden!\r\n\r\n")
+                return
+
+            # Connect to target
+            self.connect_target(hostport)
+
+            # WebSocket handshake response
+            ws_key = get_header(buf, "Sec-WebSocket-Key")
+            self.client.sendall(build_ws_101_response(ws_key))
+
+            print(f"[+] {self.addr} -> {hostport}")
+            self.relay()
 
         except Exception as e:
-            self.log += ' - error: ' + e.strerror
-            self.server.printLog(self.log)
-	    pass
+            print(f"[-] {self.addr} error: {e}")
         finally:
             self.close()
-            self.server.removeConn(self)
-
-    def findHeader(self, head, header):
-        aux = head.find(header + ': ')
-
-        if aux == -1:
-            return ''
-
-        aux = head.find(':', aux)
-        head = head[aux+2:]
-        aux = head.find('\r\n')
-
-        if aux == -1:
-            return ''
-
-        return head[:aux];
-
-    def connect_target(self, host):
-        i = host.find(':')
-        if i != -1:
-            port = int(host[i+1:])
-            host = host[:i]
-        else:
-            if self.method=='CONNECT':
-                port = 443
-            else:
-                port = sys.argv[1]
-
-        (soc_family, soc_type, proto, _, address) = socket.getaddrinfo(host, port)[0]
-
-        self.target = socket.socket(soc_family, soc_type, proto)
-        self.targetClosed = False
-        self.target.connect(address)
-
-    def method_CONNECT(self, path):
-        self.log += ' - CONNECT ' + path
-
-        self.connect_target(path)
-        self.client.sendall(RESPONSE)
-        self.client_buffer = ''
-
-        self.server.printLog(self.log)
-        self.doCONNECT()
-
-    def doCONNECT(self):
-        socs = [self.client, self.target]
-        count = 0
-        error = False
-        while True:
-            count += 1
-            (recv, _, err) = select.select(socs, [], socs, 3)
-            if err:
-                error = True
-            if recv:
-                for in_ in recv:
-		    try:
-                        data = in_.recv(BUFLEN)
-                        if data:
-			    if in_ is self.target:
-				self.client.send(data)
-                            else:
-                                while data:
-                                    byte = self.target.send(data)
-                                    data = data[byte:]
-
-                            count = 0
-			else:
-			    break
-		    except:
-                        error = True
-                        break
-            if count == TIMEOUT:
-                error = True
-            if error:
-                break
+            self.server.remove(self)
 
 
-def print_usage():
-    print 'Usage: proxy.py -p <port>'
-    print '       proxy.py -b <bindAddr> -p <port>'
-    print '       proxy.py -b 0.0.0.0 -p 80'
-
-def parse_args(argv):
-    global LISTENING_ADDR
+def main():
     global LISTENING_PORT
-    
-    try:
-        opts, args = getopt.getopt(argv,"hb:p:",["bind=","port="])
-    except getopt.GetoptError:
-        print_usage()
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print_usage()
-            sys.exit()
-        elif opt in ("-b", "--bind"):
-            LISTENING_ADDR = arg
-        elif opt in ("-p", "--port"):
-            LISTENING_PORT = int(arg)
-
-
-def main(host=LISTENING_ADDR, port=LISTENING_PORT):
-    print "\n:-------PythonProxy-------:\n"
-    print "Listening addr: " + LISTENING_ADDR
-    print "Listening port: " + str(LISTENING_PORT) + "\n"
-    print ":-------------------------:\n"
-    server = Server(LISTENING_ADDR, LISTENING_PORT)
-    server.start()
-    while True:
+    if len(sys.argv) >= 2:
         try:
-            time.sleep(2)
-        except KeyboardInterrupt:
-            print 'Stopping...'
-            server.close()
-            break
+            LISTENING_PORT = int(sys.argv[1])
+        except ValueError:
+            print("Usage: proxy_ws.py [port]")
+            sys.exit(1)
 
-#######    parse_args(sys.argv[1:])
-if __name__ == '__main__':
+    srv = Server(LISTENING_ADDR, LISTENING_PORT)
+    srv.start()
+    try:
+        while True:
+            time.sleep(2)
+    except KeyboardInterrupt:
+        print("Stopping...")
+        srv.stop()
+
+
+if __name__ == "__main__":
     main()
